@@ -17,7 +17,8 @@ data class DownloadTask(
     val progress: Float = 0f,
     val status: DownloadStatus = DownloadStatus.PENDING,
     val totalBytes: Long = 0,
-    val downloadedBytes: Long = 0
+    val downloadedBytes: Long = 0,
+    val parts: Int = 4
 )
 
 enum class DownloadStatus {
@@ -32,37 +33,56 @@ class MultipartDownloader(private val folder: File) {
     private val _tasks = MutableStateFlow<List<DownloadTask>>(emptyList())
     val tasks: StateFlow<List<DownloadTask>> = _tasks.asStateFlow()
 
+    private val jobs = java.util.concurrent.ConcurrentHashMap<String, Job>()
+
     fun startDownload(url: String, fileName: String, parts: Int = 4) {
-        val task = DownloadTask(url = url, fileName = fileName, status = DownloadStatus.DOWNLOADING)
+        val task = DownloadTask(url = url, fileName = fileName, status = DownloadStatus.PENDING, parts = parts)
         _tasks.value = _tasks.value + task
+        resumeDownload(task.id)
+    }
+
+    fun pauseDownload(taskId: String) {
+        jobs[taskId]?.cancel()
+        jobs.remove(taskId)
+        updateTask(taskId) { it.copy(status = DownloadStatus.PAUSED) }
+    }
+
+    fun resumeDownload(taskId: String) {
+        val task = _tasks.value.find { it.id == taskId } ?: return
+        if (task.status == DownloadStatus.COMPLETED) return
         
-        CoroutineScope(Dispatchers.IO).launch {
+        updateTask(taskId) { it.copy(status = DownloadStatus.DOWNLOADING) }
+        
+        val job = CoroutineScope(Dispatchers.IO).launch {
             try {
-                val req = Request.Builder().url(url).head().build()
-                val resp = client.newCall(req).execute()
-                val contentLength = resp.header("Content-Length")?.toLongOrNull() ?: 0L
-                resp.close()
+                var contentLength = task.totalBytes
+                if (contentLength <= 0) {
+                    val req = Request.Builder().url(task.url).head().build()
+                    val resp = client.newCall(req).execute()
+                    contentLength = resp.header("Content-Length")?.toLongOrNull() ?: 0L
+                    resp.close()
+                }
 
                 if (contentLength <= 0) {
-                    standardDownload(task.id, url, fileName)
+                    standardDownload(taskId, task.url, task.fileName)
                     return@launch
                 }
 
-                updateTask(task.id) { it.copy(totalBytes = contentLength) }
+                updateTask(taskId) { it.copy(totalBytes = contentLength) }
 
-                val partSize = contentLength / parts
-                val deferredParts = (0 until parts).map { i ->
+                val partSize = contentLength / task.parts
+                val deferredParts = (0 until task.parts).map { i ->
                     async {
                         val start = i * partSize
-                        val end = if (i == parts - 1) contentLength - 1 else start + partSize - 1
-                        downloadPart(task.id, url, start, end, i)
+                        val end = if (i == task.parts - 1) contentLength - 1 else start + partSize - 1
+                        downloadPart(taskId, task.url, start, end, i)
                     }
                 }
                 
                 val partFiles = deferredParts.awaitAll()
                 
                 // merge
-                val finalFile = File(folder, fileName)
+                val finalFile = File(folder, task.fileName)
                 finalFile.outputStream().use { out ->
                     for (partFile in partFiles) {
                         partFile.inputStream().use { input -> input.copyTo(out) }
@@ -70,32 +90,44 @@ class MultipartDownloader(private val folder: File) {
                     }
                 }
                 
-                updateTask(task.id) { it.copy(status = DownloadStatus.COMPLETED, progress = 1f, downloadedBytes = contentLength) }
+                updateTask(taskId) { it.copy(status = DownloadStatus.COMPLETED, progress = 1f, downloadedBytes = contentLength) }
 
+            } catch (e: CancellationException) {
+                // Was paused
             } catch (e: Exception) {
                 e.printStackTrace()
-                updateTask(task.id) { it.copy(status = DownloadStatus.FAILED) }
+                updateTask(taskId) { it.copy(status = DownloadStatus.FAILED) }
+            } finally {
+                jobs.remove(taskId)
             }
         }
+        jobs[taskId] = job
     }
 
-    private fun downloadPart(taskId: String, url: String, start: Long, end: Long, partIndex: Int): File {
+    private suspend fun downloadPart(taskId: String, url: String, start: Long, end: Long, partIndex: Int): File {
+        val partFile = File(folder, "part_${taskId}_$partIndex")
+        val existingLen = if (partFile.exists()) partFile.length() else 0L
+        
+        val actualStart = start + existingLen
+        if (actualStart > end) return partFile
+        
         val req = Request.Builder()
             .url(url)
-            .header("Range", "bytes=$start-$end")
+            .header("Range", "bytes=$actualStart-$end")
             .build()
         
         val resp = client.newCall(req).execute()
-        val partFile = File(folder, "part_${taskId}_$partIndex")
         
         val body = resp.body ?: throw Exception("Empty body")
         val inStream = body.byteStream()
-        val outStream = partFile.outputStream()
+        val outStream = java.io.FileOutputStream(partFile, true)
         
         val buffer = ByteArray(8192)
         var bytesRead: Int
+
         
         while (inStream.read(buffer).also { bytesRead = it } != -1) {
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             outStream.write(buffer, 0, bytesRead)
             
             // update global progress safely
@@ -118,7 +150,7 @@ class MultipartDownloader(private val folder: File) {
         return partFile
     }
 
-    private fun standardDownload(taskId: String, url: String, fileName: String) {
+    private suspend fun standardDownload(taskId: String, url: String, fileName: String) {
         val req = Request.Builder().url(url).build()
         val resp = client.newCall(req).execute()
         val finalFile = File(folder, fileName)
@@ -131,6 +163,7 @@ class MultipartDownloader(private val folder: File) {
         var bytesRead: Int
         
         while (inStream.read(buffer).also { bytesRead = it } != -1) {
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             outStream.write(buffer, 0, bytesRead)
             
             val limit = speedLimitKBs

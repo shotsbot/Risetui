@@ -8,6 +8,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -164,7 +166,7 @@ fun DownloadsScreen(viewModel: BrowserViewModel, onBack: () -> Unit) {
                             supportingContent = {
                                 Column {
                                     Text("Status: ${task.status.name}")
-                                    if (task.status == DownloadStatus.DOWNLOADING) {
+                                    if (task.status == DownloadStatus.DOWNLOADING || task.status == DownloadStatus.PAUSED) {
                                         LinearProgressIndicator(
                                             progress = { task.progress },
                                             modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
@@ -183,6 +185,17 @@ fun DownloadsScreen(viewModel: BrowserViewModel, onBack: () -> Unit) {
                             },
                             leadingContent = {
                                 Icon(Icons.Default.Download, contentDescription = null)
+                            },
+                            trailingContent = {
+                                if (task.status == DownloadStatus.DOWNLOADING) {
+                                    IconButton(onClick = { downloader?.pauseDownload(task.id) }) {
+                                        Icon(Icons.Default.Pause, contentDescription = "Pause")
+                                    }
+                                } else if (task.status == DownloadStatus.PAUSED) {
+                                    IconButton(onClick = { downloader?.resumeDownload(task.id) }) {
+                                        Icon(Icons.Default.PlayArrow, contentDescription = "Resume")
+                                    }
+                                }
                             }
                         )
                         HorizontalDivider()
