@@ -1,0 +1,6 @@
+{
+  "name": "Nova Browser",
+  "description": "Modern, fast, and feature-rich browser built on GeckoView.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
