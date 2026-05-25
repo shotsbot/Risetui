@@ -19,9 +19,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 
+import com.example.viewmodel.BrowserViewModel
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(onBack: () -> Unit) {
+fun DashboardScreen(viewModel: BrowserViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -42,6 +47,22 @@ fun DashboardScreen(onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text("Pintasan Cepat", style = MaterialTheme.typography.titleLarge)
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                SpeedDialItem("Google", "https://www.google.com") { url -> viewModel.loadUrl(url); onBack() }
+                SpeedDialItem("YouTube", "https://www.youtube.com") { url -> viewModel.loadUrl(url); onBack() }
+                SpeedDialItem("Facebook", "https://www.facebook.com") { url -> viewModel.loadUrl(url); onBack() }
+                SpeedDialItem("GitHub", "https://github.com") { url -> viewModel.loadUrl(url); onBack() }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(8.dp))
+
             Text("Ringkasan Penggunaan", style = MaterialTheme.typography.titleLarge)
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -121,6 +142,32 @@ fun DashboardScreen(onBack: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun SpeedDialItem(title: String, url: String, onClick: (String) -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clickable { onClick(url) }
+            .padding(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                title.take(1),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(title, style = MaterialTheme.typography.labelMedium)
     }
 }
 

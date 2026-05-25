@@ -34,13 +34,15 @@ fun BrowserScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToDashboard: () -> Unit,
     onNavigateToTabs: () -> Unit,
-    onNavigateToDownloads: () -> Unit
+    onNavigateToDownloads: () -> Unit,
+    onNavigateToHistory: () -> Unit
 ) {
     val context = LocalContext.current
     val urlInput by viewModel.urlInput.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val progress by viewModel.progress.collectAsStateWithLifecycle()
     val isIncognito by viewModel.isIncognito.collectAsStateWithLifecycle()
+    val isDesktopMode by viewModel.isDesktopMode.collectAsStateWithLifecycle()
     val tabs by viewModel.tabs.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val activeSession = viewModel.activeSession
@@ -164,6 +166,20 @@ fun BrowserScreen(
                             Icon(Icons.Default.MoreVert, contentDescription = "Options")
                         }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Buka Riwayat") },
+                                onClick = {
+                                    onNavigateToHistory()
+                                    showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (isDesktopMode) "Matikan Mode Desktop" else "Nyalakan Mode Desktop") },
+                                onClick = {
+                                    viewModel.toggleDesktopMode()
+                                    showMenu = false
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text(if (isIncognito) "Tutup Mode Penyamaran" else "Mode Penyamaran") },
                                 onClick = {

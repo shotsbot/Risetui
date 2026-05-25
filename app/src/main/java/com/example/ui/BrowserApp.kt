@@ -59,7 +59,8 @@ fun BrowserApp(viewModel: BrowserViewModel) {
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToDashboard = { navController.navigate("dashboard") },
                 onNavigateToTabs = { navController.navigate("tabs") },
-                onNavigateToDownloads = { navController.navigate("downloads") }
+                onNavigateToDownloads = { navController.navigate("downloads") },
+                onNavigateToHistory = { navController.navigate("history") }
             )
         }
         composable(
@@ -129,7 +130,7 @@ fun BrowserApp(viewModel: BrowserViewModel) {
             popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Down, animationSpec = tween(300)) },
             popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down, animationSpec = tween(300)) }
         ) {
-            DashboardScreen(onBack = { navController.popBackStack() })
+            DashboardScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
         composable(
             route = "downloads",
@@ -139,6 +140,15 @@ fun BrowserApp(viewModel: BrowserViewModel) {
             popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down, animationSpec = tween(300)) }
         ) {
             DownloadsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+        }
+        composable(
+            route = "history",
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up, animationSpec = tween(300)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Up, animationSpec = tween(300)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Down, animationSpec = tween(300)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down, animationSpec = tween(300)) }
+        ) {
+            HistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
     }
 }

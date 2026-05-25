@@ -14,6 +14,7 @@ data class DownloadTask(
     val id: String = UUID.randomUUID().toString(),
     val url: String,
     val fileName: String,
+    val filePath: String = "",
     val progress: Float = 0f,
     val status: DownloadStatus = DownloadStatus.PENDING,
     val totalBytes: Long = 0,
@@ -36,7 +37,7 @@ class MultipartDownloader(private val folder: File) {
     private val jobs = java.util.concurrent.ConcurrentHashMap<String, Job>()
 
     fun startDownload(url: String, fileName: String, parts: Int = 4) {
-        val task = DownloadTask(url = url, fileName = fileName, status = DownloadStatus.PENDING, parts = parts)
+        val task = DownloadTask(url = url, fileName = fileName, filePath = File(folder, fileName).absolutePath, status = DownloadStatus.PENDING, parts = parts)
         _tasks.value = _tasks.value + task
         resumeDownload(task.id)
     }

@@ -23,6 +23,7 @@ import com.example.utils.DownloadStatus
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsScreen(viewModel: BrowserViewModel, onBack: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val downloader = viewModel.downloader
     val tasks by downloader?.tasks?.collectAsStateWithLifecycle(initialValue = emptyList()) ?: mutableStateOf(emptyList())
     var newDownloadUrl by remember { mutableStateOf("") }
@@ -163,6 +164,28 @@ fun DownloadsScreen(viewModel: BrowserViewModel, onBack: () -> Unit) {
                     items(tasks) { task ->
                         ListItem(
                             headlineContent = { Text(task.fileName) },
+                            modifier = Modifier.clickable {
+                                if (task.status == DownloadStatus.COMPLETED) {
+                                    try {
+                                        val file = java.io.File(task.filePath)
+                                        if (file.exists()) {
+                                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                                context,
+                                                context.applicationContext.packageName + ".fileprovider",
+                                                file
+                                            )
+                                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                                setDataAndType(uri, "*/*") // Or infer mime type
+                                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(intent)
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                }
+                            },
                             supportingContent = {
                                 Column {
                                     Text("Status: ${task.status.name}")

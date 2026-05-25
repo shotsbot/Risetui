@@ -53,6 +53,12 @@ class BrowserViewModel : ViewModel() {
     private val _bookmarks = MutableStateFlow<List<Bookmark>>(emptyList())
     val bookmarks: StateFlow<List<Bookmark>> = _bookmarks.asStateFlow()
 
+    private val _historyList = MutableStateFlow<List<com.example.data.History>>(emptyList())
+    val historyList: StateFlow<List<com.example.data.History>> = _historyList.asStateFlow()
+
+    private val _isDesktopMode = MutableStateFlow(false)
+    val isDesktopMode: StateFlow<Boolean> = _isDesktopMode.asStateFlow()
+
     private val _extensions = MutableStateFlow<List<Extension>>(emptyList())
     val extensions: StateFlow<List<Extension>> = _extensions.asStateFlow()
     
@@ -142,6 +148,11 @@ class BrowserViewModel : ViewModel() {
                     syncExtensionsWithGecko()
                 }
             }
+            viewModelScope.launch {
+                database!!.historyDao().getHistory().collect { history ->
+                    _historyList.value = history
+                }
+            }
         }
 
         if (geckoRuntime == null) {
@@ -167,6 +178,7 @@ class BrowserViewModel : ViewModel() {
 
         val settings = GeckoSessionSettings.Builder()
             .usePrivateMode(_isIncognito.value)
+            .useTrackingProtection(_adBlockerEnabled.value)
             .build()
             
         val newSession = GeckoSession(settings)
@@ -185,6 +197,7 @@ class BrowserViewModel : ViewModel() {
                     _isLoading.value = true
                     _urlInput.value = url
                 }
+                addHistory(url, url)
             }
 
             override fun onPageStop(session: GeckoSession, success: Boolean) {
@@ -199,6 +212,17 @@ class BrowserViewModel : ViewModel() {
                 if (_activeTabId.value == tabId) {
                     _progress.value = progress
                 }
+            }
+        }
+        
+        newSession.navigationDelegate = object : GeckoSession.NavigationDelegate {
+            override fun onLoadRequest(session: GeckoSession, request: GeckoSession.NavigationDelegate.LoadRequest): org.mozilla.geckoview.GeckoResult<org.mozilla.geckoview.AllowOrDeny>? {
+                val uri = request.uri.lowercase()
+                if (uri.endsWith(".apk") || uri.endsWith(".zip") || uri.endsWith(".rar") || uri.endsWith(".7z") || uri.endsWith(".pdf") || uri.endsWith(".exe") || uri.endsWith(".iso") || uri.contains("/download")) {
+                    startDownload(request.uri)
+                    return org.mozilla.geckoview.GeckoResult.fromValue(org.mozilla.geckoview.AllowOrDeny.DENY)
+                }
+                return org.mozilla.geckoview.GeckoResult.fromValue(org.mozilla.geckoview.AllowOrDeny.ALLOW)
             }
         }
         
@@ -234,6 +258,36 @@ class BrowserViewModel : ViewModel() {
         }
     }
 
+    fun toggleDesktopMode() {
+        val newValue = !_isDesktopMode.value
+        _isDesktopMode.value = newValue
+        val userAgentMode = if (newValue) {
+            org.mozilla.geckoview.GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
+        } else {
+            org.mozilla.geckoview.GeckoSessionSettings.USER_AGENT_MODE_MOBILE
+        }
+        _tabs.value.forEach { tab ->
+            tab.session.settings.userAgentMode = userAgentMode
+        }
+        _message.value = if (newValue) "Mode Desktop Aktif" else "Mode Mobile Aktif"
+    }
+
+    fun clearHistory() {
+        viewModelScope.launch {
+            database?.historyDao()?.clearHistory()
+            _message.value = "Riwayat dihapus."
+        }
+    }
+
+    private fun addHistory(url: String, title: String) {
+        if (_isIncognito.value) return
+        viewModelScope.launch {
+            database?.historyDao()?.insertHistory(
+                com.example.data.History(url = url, title = title)
+            )
+        }
+    }
+
     fun loadUrl(url: String, tabId: String? = null) {
         val targetTabId = tabId ?: _activeTabId.value ?: return
         var finalUrl = url
@@ -264,8 +318,12 @@ class BrowserViewModel : ViewModel() {
     }
 
     fun toggleAdBlocker() {
-        _adBlockerEnabled.value = !_adBlockerEnabled.value
-        // In a real app we would toggle tracking protection via GeckoRuntimeSettings or WebExtensions
+        val newValue = !_adBlockerEnabled.value
+        _adBlockerEnabled.value = newValue
+        _tabs.value.forEach { tab ->
+            tab.session.settings.useTrackingProtection = newValue
+        }
+        _message.value = if (newValue) "Pemblokir Iklan Aktif" else "Pemblokir Iklan Nonaktif"
     }
 
     fun goBack() {
