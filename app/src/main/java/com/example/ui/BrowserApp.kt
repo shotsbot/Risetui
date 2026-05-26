@@ -60,7 +60,9 @@ fun BrowserApp(viewModel: BrowserViewModel) {
                 onNavigateToDashboard = { navController.navigate("dashboard") },
                 onNavigateToTabs = { navController.navigate("tabs") },
                 onNavigateToDownloads = { navController.navigate("downloads") },
-                onNavigateToHistory = { navController.navigate("history") }
+                onNavigateToHistory = { navController.navigate("history") },
+                onNavigateToFileManager = { navController.navigate("file_manager") },
+                onNavigateToTerminal = { navController.navigate("terminal") }
             )
         }
         composable(
@@ -149,6 +151,24 @@ fun BrowserApp(viewModel: BrowserViewModel) {
             popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down, animationSpec = tween(300)) }
         ) {
             HistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+        }
+        composable(
+            route = "file_manager",
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up, animationSpec = tween(300)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Up, animationSpec = tween(300)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Down, animationSpec = tween(300)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down, animationSpec = tween(300)) }
+        ) {
+            FileManagerScreen(onBack = { navController.popBackStack() })
+        }
+        composable(
+            route = "terminal",
+            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up, animationSpec = tween(300)) },
+            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Up, animationSpec = tween(300)) },
+            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Down, animationSpec = tween(300)) },
+            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down, animationSpec = tween(300)) }
+        ) {
+            TerminalScreen(onBack = { navController.popBackStack() })
         }
     }
 }

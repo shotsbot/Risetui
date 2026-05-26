@@ -130,6 +130,15 @@ fun SettingsScreen(viewModel: BrowserViewModel, onBack: () -> Unit, onNavigateTo
             }
 
             AnimatedVisibility(visible = isLoaded, enter = fadeIn(tween(delayMillis = 200)) + slideInVertically(initialOffsetY = { 50 }, animationSpec = tween(delayMillis = 200))) {
+                ListItem(
+                    headlineContent = { Text("Hapus Data Browsing") },
+                    supportingContent = { Text("Membersihkan semua riwayat dan data situs") },
+                    leadingContent = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                    modifier = Modifier.fillMaxWidth().clickable { viewModel.clearBrowsingData() }
+                )
+            }
+
+            AnimatedVisibility(visible = isLoaded, enter = fadeIn(tween(delayMillis = 250)) + slideInVertically(initialOffsetY = { 50 }, animationSpec = tween(delayMillis = 250))) {
                 Box {
                     ListItem(
                         headlineContent = { Text("Mesin Pencari") },

@@ -35,7 +35,9 @@ fun BrowserScreen(
     onNavigateToDashboard: () -> Unit,
     onNavigateToTabs: () -> Unit,
     onNavigateToDownloads: () -> Unit,
-    onNavigateToHistory: () -> Unit
+    onNavigateToHistory: () -> Unit,
+    onNavigateToFileManager: () -> Unit,
+    onNavigateToTerminal: () -> Unit
 ) {
     val context = LocalContext.current
     val urlInput by viewModel.urlInput.collectAsStateWithLifecycle()
@@ -43,9 +45,15 @@ fun BrowserScreen(
     val progress by viewModel.progress.collectAsStateWithLifecycle()
     val isIncognito by viewModel.isIncognito.collectAsStateWithLifecycle()
     val isDesktopMode by viewModel.isDesktopMode.collectAsStateWithLifecycle()
+    val isFindInPageActive by viewModel.isFindInPageActive.collectAsStateWithLifecycle()
+    val findInPageText by viewModel.findInPageText.collectAsStateWithLifecycle()
     val tabs by viewModel.tabs.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
+    val isZenMode by viewModel.isZenMode.collectAsStateWithLifecycle()
+    val isEyeCareMode by viewModel.isEyeCareMode.collectAsStateWithLifecycle()
+    val isSplitScreen by viewModel.isSplitScreen.collectAsStateWithLifecycle()
     val activeSession = viewModel.activeSession
+    val secondarySession = viewModel.secondarySession
 
     val bgColor = if (isIncognito) Color(0xFF1E1E1E) else MaterialTheme.colorScheme.background
     val topBarColor = if (isIncognito) Color(0xFF2C2C2C) else MaterialTheme.colorScheme.surfaceVariant
@@ -69,21 +77,22 @@ fun BrowserScreen(
         containerColor = bgColor,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            Column {
-                if (isLoading) {
-                    LinearProgressIndicator(
-                        progress = { progress / 100f },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = Color.Transparent
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(topBarColor)
-                        .padding(horizontal = 8.dp, vertical = 12.dp)
-                        .statusBarsPadding(),
+            if (!isZenMode) {
+                Column {
+                    if (isLoading) {
+                        LinearProgressIndicator(
+                            progress = { progress / 100f },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = Color.Transparent
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(topBarColor)
+                            .padding(horizontal = 8.dp, vertical = 12.dp)
+                            .statusBarsPadding(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                         var inputText by remember(urlInput) { mutableStateOf(urlInput) }
@@ -129,15 +138,46 @@ fun BrowserScreen(
                             }
                         }
                     )
-                }
-            }
+                } // Close Row
+            } // Close Column
+            } // Close if (!isZenMode)
         },
         bottomBar = {
-            BottomAppBar(
-                containerColor = topBarColor,
-                contentColor = textColor,
-                tonalElevation = 8.dp
-            ) {
+            if (!isZenMode) {
+                Column {
+                    if (isFindInPageActive) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().background(topBarColor).padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = findInPageText,
+                            onValueChange = { viewModel.setFindInPageText(it) },
+                            modifier = Modifier.weight(1f).height(50.dp),
+                            placeholder = { Text("Cari di halaman", color = textColor) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = textColor),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = Color.Gray
+                            ),
+                            singleLine = true
+                        )
+                        IconButton(onClick = { viewModel.findPrevious() }) {
+                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Prev", tint = textColor)
+                        }
+                        IconButton(onClick = { viewModel.findNext() }) {
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Next", tint = textColor)
+                        }
+                        IconButton(onClick = { viewModel.toggleFindInPage() }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = textColor)
+                        }
+                    }
+                }
+                BottomAppBar(
+                    containerColor = topBarColor,
+                    contentColor = textColor,
+                    tonalElevation = 8.dp
+                ) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     IconButton(onClick = { viewModel.goBack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -167,9 +207,71 @@ fun BrowserScreen(
                         }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                             DropdownMenuItem(
+                                text = { Text("Cari di Halaman") },
+                                onClick = {
+                                    viewModel.toggleFindInPage()
+                                    showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (isZenMode) "Matikan Mode Fokus" else "Mode Fokus") },
+                                onClick = {
+                                    viewModel.toggleZenMode()
+                                    showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (isSplitScreen) "Tutup Layar Terbagi" else "Layar Terbagi") },
+                                onClick = {
+                                    viewModel.toggleSplitScreen()
+                                    showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (isEyeCareMode) "Matikan Perlindungan Mata" else "Perlindungan Mata") },
+                                onClick = {
+                                    viewModel.toggleEyeCareMode()
+                                    showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Mode Baca") },
+                                onClick = {
+                                    viewModel.toggleReaderMode()
+                                    showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Bagikan Tautan") },
+                                onClick = {
+                                    val sendIntent = android.content.Intent().apply {
+                                        action = android.content.Intent.ACTION_SEND
+                                        putExtra(android.content.Intent.EXTRA_TEXT, urlInput)
+                                        type = "text/plain"
+                                    }
+                                    val shareIntent = android.content.Intent.createChooser(sendIntent, null)
+                                    context.startActivity(shareIntent)
+                                    showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Buka Riwayat") },
                                 onClick = {
                                     onNavigateToHistory()
+                                    showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("File Manager") },
+                                onClick = {
+                                    onNavigateToFileManager()
+                                    showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Terminal (Termux Mini)") },
+                                onClick = {
+                                    onNavigateToTerminal()
                                     showMenu = false
                                 }
                             )
@@ -338,23 +440,66 @@ fun BrowserScreen(
                         )
                     }
                 }
-            }
-        }
+            } // Close BottomAppBar
+            } // Close Column
+            } // Close if (!isZenMode)
+        } // Close bottomBar
     ) { innerPadding ->
-        Box(modifier = Modifier
+        Column(modifier = Modifier
             .fillMaxSize()
-            .padding(innerPadding)) {
-            AndroidView(
-                factory = { ctx ->
-                    GeckoView(ctx).apply {
-                        activeSession?.let { setSession(it) }
+            .padding(if (isZenMode) androidx.compose.foundation.layout.PaddingValues(0.dp) else innerPadding)) {
+            
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)) {
+                AndroidView(
+                    factory = { ctx ->
+                        androidx.swiperefreshlayout.widget.SwipeRefreshLayout(ctx).apply {
+                            setOnRefreshListener {
+                                viewModel.reload()
+                            }
+                            addView(org.mozilla.geckoview.GeckoView(ctx).apply {
+                                activeSession?.let { setSession(it) }
+                                id = android.view.View.generateViewId()
+                                tag = "geckoView"
+                            })
+                        }
+                    },
+                    update = { swipeRefreshLayout ->
+                        swipeRefreshLayout.isRefreshing = isLoading
+                        val geckoView = swipeRefreshLayout.findViewWithTag<org.mozilla.geckoview.GeckoView>("geckoView")
+                        activeSession?.let { geckoView?.setSession(it) }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+                if (isEyeCareMode) {
+                    Box(modifier = Modifier.fillMaxSize().background(Color(0x33FF9800))) // Eye care tint
+                }
+            }
+
+            if (isSplitScreen && secondarySession != null) {
+                Divider(color = MaterialTheme.colorScheme.primary, thickness = 2.dp)
+                Box(modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)) {
+                    AndroidView(
+                        factory = { ctx ->
+                            org.mozilla.geckoview.GeckoView(ctx).apply {
+                                setSession(secondarySession!!)
+                                id = android.view.View.generateViewId()
+                                tag = "geckoViewSecondary"
+                            }
+                        },
+                        update = { geckoViewSecondary ->
+                            geckoViewSecondary.setSession(secondarySession!!)
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    if (isEyeCareMode) {
+                        Box(modifier = Modifier.fillMaxSize().background(Color(0x33FF9800))) // Eye care tint
                     }
-                },
-                update = { view ->
-                    activeSession?.let { view.setSession(it) }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
+                }
+            }
         }
     }
 }

@@ -103,6 +103,81 @@ class BrowserViewModel : ViewModel() {
     private val _isDarkMode = MutableStateFlow(false)
     val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
+    private val _isZenMode = MutableStateFlow(false)
+    val isZenMode: StateFlow<Boolean> = _isZenMode.asStateFlow()
+
+    private val _isEyeCareMode = MutableStateFlow(false)
+    val isEyeCareMode: StateFlow<Boolean> = _isEyeCareMode.asStateFlow()
+
+    private val _isSplitScreen = MutableStateFlow(false)
+    val isSplitScreen: StateFlow<Boolean> = _isSplitScreen.asStateFlow()
+
+    fun toggleZenMode() {
+        _isZenMode.value = !_isZenMode.value
+        _message.value = if (_isZenMode.value) "Mode Fokus Diaktifkan" else "Mode Fokus Dinonaktifkan"
+    }
+
+    fun toggleEyeCareMode() {
+        _isEyeCareMode.value = !_isEyeCareMode.value
+    }
+
+    fun toggleSplitScreen() {
+        if (!_isSplitScreen.value) {
+            if (_tabs.value.size < 2) {
+                createNewTab()
+            }
+            _isSplitScreen.value = true
+        } else {
+            _isSplitScreen.value = false
+        }
+    }
+    
+    val secondarySession: org.mozilla.geckoview.GeckoSession?
+        get() {
+            if (!_isSplitScreen.value || _tabs.value.size < 2) return null
+            return _tabs.value.firstOrNull { it.id != _activeTabId.value }?.session
+        }
+
+    private val _isFindInPageActive = MutableStateFlow(false)
+    val isFindInPageActive: StateFlow<Boolean> = _isFindInPageActive.asStateFlow()
+
+    private val _findInPageText = MutableStateFlow("")
+    val findInPageText: StateFlow<String> = _findInPageText.asStateFlow()
+
+    private val _findInPageResult = MutableStateFlow<String?>(null)
+    val findInPageResult: StateFlow<String?> = _findInPageResult.asStateFlow()
+
+    fun toggleFindInPage() {
+        _isFindInPageActive.value = !_isFindInPageActive.value
+        if (!_isFindInPageActive.value) {
+            _findInPageText.value = ""
+            _findInPageResult.value = null
+            activeSession?.finder?.clear()
+        }
+    }
+
+    fun setFindInPageText(text: String) {
+        _findInPageText.value = text
+        if (text.isNotEmpty()) {
+            activeSession?.finder?.find(text, 0)
+        } else {
+            activeSession?.finder?.clear()
+        }
+    }
+    
+    fun findNext() {
+        if (_findInPageText.value.isNotEmpty()) {
+            activeSession?.finder?.find(_findInPageText.value, 0)
+        }
+    }
+
+    fun findPrevious() {
+        if (_findInPageText.value.isNotEmpty()) {
+            activeSession?.finder?.find(_findInPageText.value, 0)
+        }
+    }
+
+
     private val _downloadSpeedLimit = MutableStateFlow(0) // 0 means no limit, specified in KB/s
     val downloadSpeedLimit: StateFlow<Int> = _downloadSpeedLimit.asStateFlow()
 
@@ -270,6 +345,28 @@ class BrowserViewModel : ViewModel() {
             tab.session.settings.userAgentMode = userAgentMode
         }
         _message.value = if (newValue) "Mode Desktop Aktif" else "Mode Mobile Aktif"
+    }
+
+    fun clearBrowsingData() {
+        viewModelScope.launch {
+            val flags = org.mozilla.geckoview.StorageController.ClearFlags.ALL
+            geckoRuntime?.storageController?.clearData(flags)
+            database?.historyDao()?.clearHistory()
+            _message.value = "Data penjelajahan dibersihkan."
+        }
+    }
+
+    fun toggleReaderMode() {
+        val tab = _tabs.value.find { it.id == _activeTabId.value } ?: return
+        val currentUrl = tab.url
+        if (currentUrl.startsWith("about:reader?url=")) {
+            val originalUrl = currentUrl.removePrefix("about:reader?url=")
+            val decodedUrl = java.net.URLDecoder.decode(originalUrl, "UTF-8")
+            loadUrl(decodedUrl)
+        } else {
+            val encodedUrl = java.net.URLEncoder.encode(currentUrl, "UTF-8")
+            loadUrl("about:reader?url=$encodedUrl")
+        }
     }
 
     fun clearHistory() {
